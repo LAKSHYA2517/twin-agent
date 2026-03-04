@@ -3,8 +3,11 @@ import React, { useState, useEffect } from 'react';
 function App() {
   const [twinData, setTwinData] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [logInput, setLogInput] = useState({ activity_type: 'sleep', duration_hours: 0 });
   const [darkMode, setDarkMode] = useState(true);
+  
+  // New States for API and NLP Journal
+  const [journalText, setJournalText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchState = () => {
     fetch('http://localhost:8000/api/twin/state')
@@ -14,20 +17,35 @@ function App() {
 
   useEffect(() => { fetchState(); }, []);
 
-  const handleLogSubmit = (e) => {
+  // Handler for simulated API Sync
+  const handleApiSync = () => {
+    setIsProcessing(true);
+    setTimeout(() => { // Fake delay to simulate network request
+      fetch('http://localhost:8000/api/twin/sync_apis', { method: 'POST' })
+        .then(() => {
+          fetchState();
+          setIsProcessing(false);
+          setActiveTab('dashboard'); // Bounce back to see results
+        });
+    }, 1200);
+  };
+
+  // Handler for NLP Journal
+  const handleJournalSubmit = (e) => {
     e.preventDefault();
-    fetch('http://localhost:8000/api/twin/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        activity_type: logInput.activity_type,
-        duration_hours: parseFloat(logInput.duration_hours)
-      })
-    }).then(() => {
-      fetchState();
-      setActiveTab('dashboard');
-      setLogInput({ activity_type: 'sleep', duration_hours: 0 }); // reset form
-    });
+    setIsProcessing(true);
+    setTimeout(() => { // Fake delay for "AI processing" feel
+      fetch('http://localhost:8000/api/twin/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: journalText })
+      }).then(() => {
+        fetchState();
+        setIsProcessing(false);
+        setActiveTab('dashboard');
+        setJournalText(''); // reset form
+      });
+    }, 1500);
   };
 
   if (!twinData) return (
@@ -63,9 +81,6 @@ function App() {
           <div className="flex items-center gap-3 mb-4">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-purple-500 rounded-lg blur opacity-75 animate-pulse"></div>
-              <div className="relative bg-slate-900 p-2 rounded-lg">
-                <span className="text-2xl">🤖</span>
-              </div>
             </div>
             <h2 className="text-2xl font-black bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               TwinAgent
@@ -76,9 +91,9 @@ function App() {
           </p>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - UPDATED TAB NAME HERE */}
         <div className="flex-1 px-4 py-6 space-y-3">
-          {['dashboard', 'timeline_&_schedule', 'sensor_input'].map(tab => (
+          {['dashboard', 'timeline_&_schedule', 'data_ingestion'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -89,9 +104,6 @@ function App() {
               }`}
             >
               <span className="relative z-10 flex items-center gap-2">
-                {tab === 'dashboard' && ''}
-                {tab === 'timeline_&_schedule' && ''}
-                {tab === 'sensor_input' && ''}
                 <span>{tab.replace(/_/g, ' ')}</span>
               </span>
             </button>
@@ -169,7 +181,7 @@ function App() {
         {/* Content Area */}
         <div className="p-10">
           
-          {/* --- DASHBOARD VIEW --- */}
+          {/* --- DASHBOARD VIEW (Unchanged) --- */}
           {activeTab === 'dashboard' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
@@ -294,9 +306,9 @@ function App() {
             </div>
           )}
 
-          {/* --- SCHEDULE VIEW --- */}
+          {/* --- SCHEDULE VIEW (Unchanged) --- */}
           {activeTab === 'timeline_&_schedule' && (
-            <div className={`rounded-3xl border transition-all duration-300 backdrop-blur-sm animated-in fade-in ${
+            <div className={`rounded-3xl border transition-all duration-300 backdrop-blur-sm animated-in fade-in slide-in-from-bottom-4 duration-500 ${
               darkMode
                 ? 'bg-slate-800/50 border-slate-700/50'
                 : 'bg-white border-slate-200'
@@ -357,66 +369,91 @@ function App() {
             </div>
           )}
 
-          {/* --- SENSOR INPUT VIEW --- */}
-          {activeTab === 'sensor_input' && (
-            <div className={`max-w-2xl rounded-3xl border transition-all duration-300 backdrop-blur-sm animated-in fade-in ${
-              darkMode
-                ? 'bg-slate-800/50 border-slate-700/50'
-                : 'bg-white border-slate-200'
-            } p-10`}>
-              <h2 className={`text-2xl font-bold mb-3 flex items-center gap-3 ${
-                darkMode ? 'text-slate-100' : 'text-slate-800'
-              }`}>
-                Manual Data Ingestion
-              </h2>
-              <p className={`mb-8 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Simulate realistic sensor data from wearables or IDE monitoring.
-              </p>
+          {/* --- NEW DATA INGESTION VIEW (Styled perfectly to your theme) --- */}
+          {activeTab === 'data_ingestion' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              <form onSubmit={handleLogSubmit} className="space-y-8">
-                <div className="space-y-3">
-                  <label className={`block text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                    Data Stream Type
-                  </label>
-                  <select 
-                    className={`w-full px-5 py-4 rounded-xl font-semibold transition-all duration-300 outline-none focus:ring-2 focus:ring-purple-500 border ${
-                      darkMode
-                        ? 'bg-slate-700/50 border-slate-600/50 text-slate-100 focus:border-purple-500'
-                        : 'bg-white border-slate-300 text-slate-800 focus:border-transparent'
-                    }`}
-                    value={logInput.activity_type}
-                    onChange={e => setLogInput({...logInput, activity_type: e.target.value})}
-                  >
-                    <option value="sleep">Biometric: Sleep Recovery</option>
-                    <option value="coding">Skill: Coding Session</option>
-                    <option value="study">Academic: Deep Work</option>
-                  </select>
-                </div>
-
-                <div className="space-y-3">
-                  <label className={`block text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                    Duration (Hours)
-                  </label>
-                  <input 
-                    type="number" 
-                    step="0.5"
-                    className={`w-full px-5 py-4 rounded-xl font-semibold transition-all duration-300 outline-none focus:ring-2 focus:ring-purple-500 border ${
-                      darkMode
-                        ? 'bg-slate-700/50 border-slate-600/50 text-slate-100 focus:border-purple-500'
-                        : 'bg-white border-slate-300 text-slate-800 focus:border-transparent'
-                    }`}
-                    value={logInput.duration_hours}
-                    onChange={e => setLogInput({...logInput, duration_hours: e.target.value})}
-                  />
+              {/* Method 1: API Sync */}
+              <div className={`rounded-3xl border transition-all duration-300 backdrop-blur-sm ${
+                darkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'
+              } p-10`}>
+                <h2 className={`text-2xl font-bold mb-3 flex items-center gap-3 ${
+                  darkMode ? 'text-slate-100' : 'text-slate-800'
+                }`}>
+                  Digital Exhaust Sync
+                </h2>
+                <p className={`mb-8 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Simulate background polling of external services (GitHub/LeetCode) to track academic metrics autonomously.
+                </p>
+                
+                <div className="space-y-4 mb-8">
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${darkMode ? 'bg-slate-700/30 border-slate-600/50' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="text-3xl"></div>
+                    <div>
+                      <h4 className={`font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>GitHub</h4>
+                      <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tracking daily commits</p>
+                    </div>
+                    <div className="ml-auto text-green-500 text-sm font-bold animate-pulse">Connected</div>
+                  </div>
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 ${darkMode ? 'bg-slate-700/30 border-slate-600/50' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="text-3xl"></div>
+                    <div>
+                      <h4 className={`font-bold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>LeetCode</h4>
+                      <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tracking problem streaks</p>
+                    </div>
+                    <div className="ml-auto text-green-500 text-sm font-bold animate-pulse">Connected</div>
+                  </div>
                 </div>
 
                 <button 
-                  type="submit" 
-                  className="w-full py-4 px-6 rounded-xl font-bold text-lg text-white uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 hover:shadow-2xl hover:shadow-purple-500/50 shadow-lg"
+                  onClick={handleApiSync}
+                  disabled={isProcessing}
+                  className="w-full py-4 px-6 rounded-xl font-bold text-lg text-white uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 hover:shadow-2xl hover:shadow-purple-500/50 shadow-lg disabled:opacity-50 disabled:hover:scale-100"
                 >
-                  Transmit to Twin State
+                  {isProcessing ? 'Fetching APIs...' : ' Fetch'}
                 </button>
-              </form>
+              </div>
+
+              {/* Method 2: NLP Journal */}
+              <div className={`rounded-3xl border transition-all duration-300 backdrop-blur-sm ${
+                darkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'
+              } p-10`}>
+                <h2 className={`text-2xl font-bold mb-3 flex items-center gap-3 ${
+                  darkMode ? 'text-slate-100' : 'text-slate-800'
+                }`}>
+                  NLP Daily Check-in
+                </h2>
+                <p className={`mb-8 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Simulate extracting subjective metrics (sleep, stress, focus) from natural language using AI entity extraction.
+                </p>
+                
+                <form onSubmit={handleJournalSubmit} className="space-y-6">
+                  <div className="space-y-3">
+                    <label className={`block text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      How was your day?
+                    </label>
+                    <textarea 
+                      rows="4"
+                      className={`w-full px-5 py-4 rounded-xl font-semibold transition-all duration-300 outline-none focus:ring-2 focus:ring-purple-500 border resize-none ${
+                        darkMode
+                          ? 'bg-slate-700/50 border-slate-600/50 text-slate-100 focus:border-purple-500'
+                          : 'bg-white border-slate-300 text-slate-800 focus:border-transparent'
+                      }`}
+                      placeholder="e.g., I finally slept 8 hours, and finished my leetcode practice."
+                      value={journalText}
+                      onChange={e => setJournalText(e.target.value)}
+                    ></textarea>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={isProcessing || !journalText}
+                    className="w-full py-4 px-6 rounded-xl font-bold text-lg text-white uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 hover:shadow-2xl hover:shadow-purple-500/50 shadow-lg disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    {isProcessing ? ' Extracting Entities...' : ' Analyze & Update Twin'}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
 

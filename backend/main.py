@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
+import re
 
-app = FastAPI(title="Digital Twin Agent API",version="1.0")
+app = FastAPI(title="Digital Twin Agent API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,15 +14,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- ANONYMIZED MOCK DATA STORE ---
 TWIN_STATE = {
     "profile": {
-        "name": "Lakshya",
-        "university": "Vellore Institute of Technology",
+        "name": "Lakshya Asnani",
+        "university": "Vellore Institute of technology",
         "status": "Active"
     },
     "metrics": {
         "coding_streak_days": 14,
-        "focus_score": 65,            # New metric (0-100)
+        "focus_score": 65,            
         "current_stress_score": 8.5,  # High stress trigger
         "sleep_deficit_hours": 5.0
     },
@@ -45,38 +47,57 @@ TWIN_STATE = {
     ]
 }
 
-class LogData(BaseModel):
-    activity_type: str # 'sleep', 'coding', 'study'
-    duration_hours: float
+class JournalData(BaseModel):
+    text: str
 
 @app.get("/api/twin/state")
 def get_state():
     return TWIN_STATE
 
-@app.post("/api/twin/log")
-def log_activity(data: LogData):
+@app.post("/api/twin/sync_apis")
+def sync_apis():
+    """Simulates pulling data from GitHub and LeetCode"""
     timestamp = datetime.now().strftime("%I:%M %p")
+    TWIN_STATE["metrics"]["coding_streak_days"] += 1
+    TWIN_STATE["goals"][0]["progress"] = min(100, TWIN_STATE["goals"][0]["progress"] + 2)
+    TWIN_STATE["agent_status"]["history"].insert(0, {"time": timestamp, "action": "API Sync: Pulled 3 commits from GitHub, 1 LeetCode submission."})
+    return {"message": "APIs Synced", "new_state": TWIN_STATE}
+
+@app.post("/api/twin/journal")
+def process_journal(data: JournalData):
+    """Simulates NLP Entity Extraction from a journal entry"""
+    timestamp = datetime.now().strftime("%I:%M %p")
+    text = data.text.lower()
     
-    if data.activity_type == "sleep":
-        TWIN_STATE["metrics"]["sleep_deficit_hours"] = max(0, TWIN_STATE["metrics"]["sleep_deficit_hours"] - data.duration_hours)
-        TWIN_STATE["goals"][1]["progress"] = min(100, TWIN_STATE["goals"][1]["progress"] + (data.duration_hours * 5))
+    extracted_actions = []
+
+    # Simulate extracting sleep data
+    sleep_match = re.search(r'slept.*?(\d+)|sleep.*?(\d+)', text)
+    if sleep_match:
+        hours = float(sleep_match.group(1) or sleep_match.group(2))
+        TWIN_STATE["metrics"]["sleep_deficit_hours"] = max(0, TWIN_STATE["metrics"]["sleep_deficit_hours"] - hours)
+        TWIN_STATE["goals"][1]["progress"] = min(100, TWIN_STATE["goals"][1]["progress"] + (hours * 5))
+        extracted_actions.append(f"Extracted sleep: {hours}h")
         
+        # Heal state if sleep is good
         if TWIN_STATE["metrics"]["sleep_deficit_hours"] < 2:
             TWIN_STATE["metrics"]["current_stress_score"] = 4.0
             TWIN_STATE["agent_status"]["needs_intervention"] = False
             TWIN_STATE["agent_status"]["agent_message"] = "Metrics stabilized. Schedule optimized for peak productivity."
             TWIN_STATE["schedule"][2]["status"] = "pending" # Unblock task
-            TWIN_STATE["agent_status"]["history"].insert(0, {"time": timestamp, "action": "Sleep logged. Deficit cleared. Schedule restored."})
-            
-    elif data.activity_type == "coding":
-        TWIN_STATE["metrics"]["coding_streak_days"] += 1
-        TWIN_STATE["goals"][0]["progress"] = min(100, TWIN_STATE["goals"][0]["progress"] + 5)
-        TWIN_STATE["metrics"]["current_stress_score"] += 0.5
-        TWIN_STATE["agent_status"]["history"].insert(0, {"time": timestamp, "action": f"Logged {data.duration_hours}h coding. Streak updated."})
-        
-    elif data.activity_type == "study":
-        TWIN_STATE["metrics"]["focus_score"] = min(100, TWIN_STATE["metrics"]["focus_score"] + 10)
-        TWIN_STATE["metrics"]["current_stress_score"] += 1.0
-        TWIN_STATE["agent_status"]["history"].insert(0, {"time": timestamp, "action": f"Deep work session logged ({data.duration_hours}h)."})
 
-    return {"message": "Success", "new_state": TWIN_STATE}
+    # Simulate extracting coding data
+    if "leetcode" in text or "code" in text or "github" in text:
+        TWIN_STATE["metrics"]["coding_streak_days"] += 1
+        TWIN_STATE["metrics"]["current_stress_score"] += 0.5
+        extracted_actions.append("Extracted coding activity")
+
+    # Simulate extracting stress
+    if "stress" in text or "tired" in text or "exhausted" in text:
+        TWIN_STATE["metrics"]["current_stress_score"] = min(10.0, TWIN_STATE["metrics"]["current_stress_score"] + 2.0)
+        extracted_actions.append("Extracted high stress indicator")
+
+    action_text = "NLP Processed: " + ", ".join(extracted_actions) if extracted_actions else "NLP Processed: No actionable metrics found."
+    TWIN_STATE["agent_status"]["history"].insert(0, {"time": timestamp, "action": action_text})
+
+    return {"message": "Journal Processed", "new_state": TWIN_STATE}
